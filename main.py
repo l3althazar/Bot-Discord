@@ -319,5 +319,4 @@ async def setup(ctx):
     await refresh_setup_msg(ctx.channel)
 
 keep_alive()
-try: bot.run(os.environ['TOKEN'])
 except: print("Error: Token not found")
