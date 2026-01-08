@@ -55,7 +55,7 @@ try:
         
         genai.configure(api_key=api_key)
         # ✅ ใช้โมเดล gemini-1.5-flash
-        model = genai.GenerativeModel('gemini-1.5-flash')
+        model = genai.GenerativeModel('gemini-1.5-flash-001')
         AI_STATUS = "✅ พร้อมใช้งาน"
 except Exception as e:
     AI_STATUS = f"💥 Error: {str(e)}"
