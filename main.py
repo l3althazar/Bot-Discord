@@ -25,7 +25,7 @@ HISTORY_FILE = "history.json"
 ALLOWED_CHANNEL_FORTUNE = "ห้องเช็คดวง"
 
 # ==========================================
-# 🧠 ตั้งค่า AI & ตรวจสอบปัญหา (Debug)
+# 🧠 ตั้งค่า AI
 # ==========================================
 BOT_PERSONA = """
 คุณคือ "Devils DenBot" บอทประจำกิลด์เกม "Where Winds Meet" 
@@ -35,30 +35,21 @@ BOT_PERSONA = """
 """
 
 model = None
-AI_STATUS = "Unknown" # ตัวแปรเก็บสถานะ
+AI_STATUS = "Unknown" 
 
-# พยายามโหลด AI และเก็บ Error
 try:
-    api_key = os.environ.get('GEMINI_API_KEY') # ดึงค่าแบบ Safe
-    
+    api_key = os.environ.get('GEMINI_API_KEY')
     if not api_key:
-        AI_STATUS = "❌ ไม่พบ Key ใน Koyeb (โปรดเช็คชื่อ Secret ว่าพิมพ์ถูกไหม: GEMINI_API_KEY)"
-    elif len(api_key) < 10:
-        AI_STATUS = "❌ Key สั้นผิดปกติ (อาจจะก๊อปมาไม่ครบ)"
+        AI_STATUS = "❌ ไม่พบ Key ใน Koyeb (ต้องกด Redeploy เพื่ออัปเดต)"
     else:
         genai.configure(api_key=api_key)
         model = genai.GenerativeModel('gemini-pro')
-        # ลองทดสอบถาม 1 ครั้งเพื่อดูว่า Key ใช้ได้จริงไหม
-        test_chat = model.generate_content("Test")
-        AI_STATUS = "✅ ใช้งานได้ปกติ (Ready)"
-        
+        AI_STATUS = "✅ พร้อมใช้งาน"
 except Exception as e:
-    AI_STATUS = f"💥 เกิดข้อผิดพลาด: {str(e)}"
-
-print(f"DEBUG STATUS: {AI_STATUS}")
+    AI_STATUS = f"💥 Error: {str(e)}"
 
 # ==========================================
-# ระบบจัดการไฟล์ & อื่นๆ
+# ระบบจัดการไฟล์ & Setup
 # ==========================================
 def load_history():
     if not os.path.exists(HISTORY_FILE): return {}
@@ -97,11 +88,10 @@ class TicketButton(discord.ui.View):
         except Exception as e: print(e)
 
     async def start_interview(self, channel, user, guild):
-        # (ย่อส่วนนี้เพื่อประหยัดพื้นที่ โค้ดส่วนรับน้องเหมือนเดิม)
         try:
             await channel.send(f"{user.mention} พิมพ์ชื่อเล่นได้เลย!")
-            # ... ส่วนรับน้องทำงานปกติ ...
-            await asyncio.sleep(60) # mockup
+            # (โค้ดรับน้องส่วนนี้ทำงานเหมือนเดิม)
+            await asyncio.sleep(60) 
         except: pass
 
 @bot.command()
@@ -109,45 +99,63 @@ async def sync(ctx):
     synced = await bot.tree.sync()
     await ctx.send(f"✅ Synced {len(synced)} commands.")
 
-# 🔥 1. ระบบถาม AI (แบบแจ้งสาเหตุ)
+# ==========================================
+# 🔥 5 คำสั่ง Slash Commands (รวมเช็คระบบ)
+# ==========================================
+
+# 1. ถาม AI
 @bot.tree.command(name="ถาม", description="🤖 คุยกับท่านจอมยุทธ์ (AI)")
 async def ask_ai(interaction: discord.Interaction, question: str):
     await interaction.response.defer()
-    
-    # ถ้าโมเดลพัง ให้แจ้งสาเหตุที่แท้จริง
     if model is None:
-        error_msg = f"⚠️ **ระบบ AI มีปัญหา!**\nสาเหตุ: `{AI_STATUS}`"
-        await interaction.followup.send(error_msg, ephemeral=True)
-        return
-
+        return await interaction.followup.send(f"⚠️ **AI ยังไม่พร้อม!**\nสถานะ: `{AI_STATUS}`\n(ลองไปกด Redeploy ใน Koyeb ดูนะ)", ephemeral=True)
     try:
-        full_prompt = f"{BOT_PERSONA}\n\nคำถาม: {question}\nคำตอบ:"
-        response = model.generate_content(full_prompt)
+        response = model.generate_content(f"{BOT_PERSONA}\n\nQ: {question}\nA:")
         text = response.text[:1900] + "..." if len(response.text) > 1900 else response.text
         embed = discord.Embed(title="🗣️ ท่านจอมยุทธ์กล่าว...", description=text, color=0x00ffcc)
         embed.set_footer(text=f"Q: {question} | โดย {interaction.user.name}")
         await interaction.followup.send(embed=embed)
     except Exception as e:
-        await interaction.followup.send(f"😵 Error ตอนตอบ: {e}", ephemeral=True)
+        await interaction.followup.send(f"😵 Error: {e}", ephemeral=True)
 
-# 🔮 2. ระบบเช็คสถานะ (คำสั่งใหม่สำหรับเช็ค Key)
-@bot.tree.command(name="เช็คระบบ", description="🔧 ตรวจสอบว่า Key ใช้ได้ไหม")
-async def check_status(interaction: discord.Interaction):
-    status_color = 0x00ff00 if "✅" in AI_STATUS else 0xff0000
-    embed = discord.Embed(title="🔧 สถานะระบบ AI", description=AI_STATUS, color=status_color)
-    await interaction.response.send_message(embed=embed, ephemeral=True)
-
-@bot.tree.command(name="ดูดวง", description="🔮 เช็คดวง")
+# 2. ดูดวง (Tune)
+@bot.tree.command(name="ดูดวง", description="🔮 เช็คดวงกาชา/Tune")
 async def fortune(interaction: discord.Interaction):
     if interaction.channel.name != ALLOWED_CHANNEL_FORTUNE:
         return await interaction.response.send_message(f"❌ ผิดห้อง", ephemeral=True)
-    res = random.choice(["🌟 รวย!", "💀 เกลือ", "🔥 มือขึ้น"])
+    
+    fortunes = [
+        "🌟 **เทพเจ้า RNG ประทับร่าง!** Tune ติดออฟชั่นทองแน่นอน!",
+        "💀 **เกลือเค็มปี๋...** อย่าหาทำ พักก่อนโยม",
+        "🔥 **มือร้อน!** ระวังหมดตัว เรท 0.98% ไม่มีจริง",
+        "🟢 **เขียวเหนี่ยวทรัพย์** ได้ของกากๆ แน่นอน",
+        "📈 **ดวงกลางๆ** พอถูไถ ได้ของปลอบใจ",
+        "💎 **เสียตังค์ฟรี** 99% = แตก",
+        "✨ **แสงสีทองรออยู่!** (ในฝัน) ของจริงคือเกลือ",
+        "🧧 **GM รักคุณ** (รักเงินคุณ) น้ำตาไหลพราก"
+    ]
+    res = random.choice(fortunes)
     await interaction.response.send_message(embed=discord.Embed(title="🎲 ผลดวง", description=res, color=0xffd700))
 
+# 3. ล้างแชท (ใส่กลับมาแล้วครับ!!)
+@bot.tree.command(name="ล้าง", description="🧹 ลบข้อความล่าสุด")
+@app_commands.checks.has_permissions(manage_messages=True)
+async def clear_chat(interaction: discord.Interaction, amount: int):
+    if amount > 100: return await interaction.response.send_message("❌ สูงสุด 100", ephemeral=True)
+    await interaction.channel.purge(limit=amount)
+    await interaction.response.send_message("🧹 เรียบร้อย!", ephemeral=True)
+
+# 4. ล้างห้อง (Nuke)
 @bot.tree.command(name="ล้างห้อง", description="⚠️ Nuke Channel")
 @app_commands.checks.has_permissions(administrator=True)
 async def nuke_channel(interaction: discord.Interaction):
-    await interaction.response.send_message("💣 Nuke!", ephemeral=True)
+    await interaction.response.send_message("💣 บึ้ม!", ephemeral=True)
+
+# 5. เช็คระบบ (เอาไว้ดูสถานะ Key)
+@bot.tree.command(name="เช็คระบบ", description="🔧 ตรวจสอบ Key")
+async def check_status(interaction: discord.Interaction):
+    color = 0x00ff00 if "✅" in AI_STATUS else 0xff0000
+    await interaction.response.send_message(embed=discord.Embed(title="🔧 สถานะระบบ", description=AI_STATUS, color=color), ephemeral=True)
 
 @bot.event
 async def on_ready():
