@@ -77,8 +77,11 @@ try:
         
         genai.configure(api_key=api_key)
         
-        # ✅ แก้ไขตรงนี้: ใส่ tools ให้ถูกรูปแบบ (List of Dict)
-        model = genai.GenerativeModel('gemini-2.5-flash', tools=[{"google_search": {}}])
+        # เรียกใช้ผ่าน genai.protos โดยตรง เพื่อความชัวร์ครับ
+        model = genai.GenerativeModel(
+            'gemini-2.5-flash',
+            tools=[genai.protos.Tool(google_search=genai.protos.GoogleSearch())]
+        )
         
         AI_STATUS = "✅ พร้อมใช้งาน (Google Search Enabled)"
         logger.info("✅ Gemini Model loaded successfully with Google Search tool.")
