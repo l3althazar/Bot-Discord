@@ -319,4 +319,5 @@ async def setup(ctx):
     await refresh_setup_msg(ctx.channel)
 
 keep_alive()
-except: print("Error: Token not found")
+# ลบ try/except ออก ให้เหลือแค่บรรทัดนี้บรรทัดเดียวเพียวๆ เลยครับ
+bot.run(os.environ['TOKEN'])
