@@ -6,7 +6,7 @@ import datetime
 import json
 import os
 import random
-import google.generativeai as genai 
+import google.generativeai as genai
 from keep_alive import keep_alive
 
 # --- ตั้งค่า Permission ---
@@ -19,15 +19,18 @@ bot = commands.Bot(command_prefix='-', intents=intents)
 # ==========================================
 # ⚙️ ตั้งค่า (แก้ไขชื่อห้อง/ยศ ตรงนี้)
 # ==========================================
-PUBLIC_CHANNEL = "ห้องแนะนำตัว"         
-ROLE_VERIFIED = "‹ แนะนำตัวแล้ว ›"      
-ROLE_WWM = "ข้าคือจอมยุทธ์เด๊ะ"         
+PUBLIC_CHANNEL = "ห้องแนะนำตัว"
+ROLE_VERIFIED = "‹ แนะนำตัวแล้ว ›"
+ROLE_WWM = "ข้าคือจอมยุทธ์เด๊ะ"
 HISTORY_FILE = "history.json"
 ALLOWED_CHANNEL_FORTUNE = "ห้องเช็คดวง"
 
 # ==========================================
 # 🧠 ตั้งค่า AI & ตรวจสอบกุญแจ
 # ==========================================
+# ✅ เพิ่มตัวแปรเก็บเวอร์ชัน GenAI
+GENAI_VERSION = genai.__version__
+
 BOT_PERSONA = """
 คุณคือ "Devils DenBot" บอทประจำกิลด์เกม "Where Winds Meet" 
 นิสัยของคุณคือ: เป็นจอมยุทธ์ผู้เก่งกาจในยุทธภพ, กวนประสาทนิดๆ, เฮฮา, รักพวกพ้อง
@@ -37,7 +40,7 @@ BOT_PERSONA = """
 
 model = None
 AI_STATUS = "Unknown"
-KEY_DEBUG_INFO = "No Key" 
+KEY_DEBUG_INFO = "No Key"
 
 try:
     api_key = os.environ.get('GEMINI_API_KEY')
@@ -51,6 +54,7 @@ try:
         KEY_DEBUG_INFO = f"{start_char}...{end_char} (ยาว: {k_len} ตัวอักษร)"
         
         genai.configure(api_key=api_key)
+        # ✅ ใช้โมเดล gemini-1.5-flash
         model = genai.GenerativeModel('gemini-1.5-flash')
         AI_STATUS = "✅ พร้อมใช้งาน"
 except Exception as e:
@@ -195,6 +199,8 @@ async def check_status(interaction: discord.Interaction):
     color = 0x00ff00 if "✅" in AI_STATUS else 0xff0000
     embed = discord.Embed(title="🔧 ข้อมูลระบบ AI", color=color)
     embed.add_field(name="สถานะ", value=AI_STATUS, inline=False)
+    # ✅ เพิ่มบรรทัดแสดงเวอร์ชันตรงนี้
+    embed.add_field(name="📦 GenAI Version", value=f"`v{GENAI_VERSION}`", inline=True)
     embed.add_field(name="🔑 กุญแจที่บอทเห็น", value=f"`{KEY_DEBUG_INFO}`", inline=False)
     embed.set_footer(text="ถ้ากุญแจยาวเกิน 39 หรือตัวหน้า/หลังไม่ตรงกับ Google แปลว่าผิด!")
     await interaction.response.send_message(embed=embed, ephemeral=True)
