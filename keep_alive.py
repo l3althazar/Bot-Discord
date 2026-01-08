@@ -35,9 +35,9 @@ html_code = """
             padding: 0;
             overflow-x: hidden;
             
-            /* 🔥 แก้ไขพื้นหลัง: เปลี่ยนเป็นรูปสไตล์ภาพวาดแฟนตาซี/Vector Art 🔥 */
-            background: linear-gradient(rgba(0, 0, 0, 0.6), rgba(30, 0, 0, 0.85)),
-                        url('https://cdn.pixabay.com/photo/2020/10/23/16/50/castle-5679267_1280.jpg');
+            /* 🔥 แก้ไขพื้นหลัง: ใช้รูปปราสาทใหม่ที่คุณส่งมาครับ 🔥 */
+            background: linear-gradient(rgba(0, 0, 0, 0.5), rgba(30, 0, 0, 0.9)),
+                        url('https://cdn.discordapp.com/attachments/1458426304633241656/1458869203925733528/ChatGPT_Image_9_.._2569_00_05_07.png?ex=69613552&is=695fe3d2&hm=1a78d6f57b6844485fbdf163d924f056a5bbd2521828898edb7804dff48e61a0&');
             background-repeat: no-repeat;
             background-position: center center;
             background-attachment: fixed;
@@ -59,7 +59,7 @@ html_code = """
             background: url('https://raw.githubusercontent.com/danielstuart14/CSS_FOG_ANIMATION/master/fog1.png') repeat-x;
             background-size: contain;
             animation: fog 60s linear infinite;
-            opacity: 0.4;
+            opacity: 0.3; /* ลดความทึบหมอกลงนิดนึง เพื่อให้เห็นปราสาทสวยๆ ชัดขึ้น */
         }
         .fog-img-2 {
             background: url('https://raw.githubusercontent.com/danielstuart14/CSS_FOG_ANIMATION/master/fog2.png') repeat-x;
@@ -67,7 +67,7 @@ html_code = """
             animation: fog 40s linear infinite;
             z-index: -1;
             top: 30%;
-            opacity: 0.3;
+            opacity: 0.2;
         }
         @keyframes fog { 0% { transform: translate3d(0, 0, 0); } 100% { transform: translate3d(-200vw, 0, 0); } }
 
@@ -177,9 +177,10 @@ html_code = """
             border-left: 3px solid var(--primary);
             padding-left: 15px;
             background: linear-gradient(90deg, rgba(255,0,0,0.1), transparent);
-            background-color: rgba(0, 0, 0, 0.4); 
+            background-color: rgba(0, 0, 0, 0.5); /* เพิ่มความเข้มพื้นหลังข้อความให้อ่านง่ายขึ้น */
             padding: 10px 15px;
             border-radius: 0 10px 10px 0;
+            backdrop-filter: blur(3px);
         }
 
         /* --- Stats Row --- */
@@ -193,7 +194,7 @@ html_code = """
         /* --- Services Section --- */
         .services-section {
             padding: 80px 20px;
-            background: rgba(5, 0, 0, 0.85);
+            background: rgba(5, 0, 0, 0.9); /* พื้นหลังเข้มขึ้นอีกนิดเพื่อบังปราสาท */
             text-align: center;
             backdrop-filter: blur(5px);
         }
@@ -342,15 +343,3 @@ html_code = """
 
 </body>
 </html>
-"""
-
-@app.route('/')
-def home():
-    return render_template_string(html_code)
-
-def run():
-    app.run(host='0.0.0.0', port=8080)
-
-def keep_alive():
-    t = Thread(target=run)
-    t.start()
