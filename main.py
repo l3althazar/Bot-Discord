@@ -6,8 +6,19 @@ import datetime
 import json
 import os
 import random
+import logging # ✅ เพิ่มไลบรารีสำหรับ Log
 import google.generativeai as genai
 from keep_alive import keep_alive
+
+# ==========================================
+# 📝 ตั้งค่าระบบ Log (บันทึกการทำงาน)
+# ==========================================
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s [%(levelname)s] %(message)s',
+    datefmt='%d/%m/%Y %H:%M:%S'
+)
+logger = logging.getLogger("DevilsBot")
 
 # --- ตั้งค่า Permission ---
 intents = discord.Intents.default()
@@ -28,7 +39,6 @@ ALLOWED_CHANNEL_FORTUNE = "ห้องเช็คดวง"
 # ==========================================
 # 🧠 ตั้งค่า AI & ตรวจสอบกุญแจ
 # ==========================================
-# ✅ เพิ่มตัวแปรเก็บเวอร์ชัน GenAI
 GENAI_VERSION = genai.__version__
 
 BOT_PERSONA = """
@@ -56,21 +66,25 @@ KEY_DEBUG_INFO = "No Key"
 try:
     api_key = os.environ.get('GEMINI_API_KEY')
     if not api_key:
-        AI_STATUS = "❌ ไม่พบ Key (บอทหากุญแจไม่เจอเลย)"
+        AI_STATUS = "❌ ไม่พบ Key"
         KEY_DEBUG_INFO = "None"
+        logger.error("API Key not found in environment variables!")
     else:
         k_len = len(api_key)
         start_char = api_key[:5]
         end_char = api_key[-4:]
-        KEY_DEBUG_INFO = f"{start_char}...{end_char} (ยาว: {k_len} ตัวอักษร)"
+        KEY_DEBUG_INFO = f"{start_char}...{end_char} (ยาว: {k_len})"
         
         genai.configure(api_key=api_key)
-        # ✅ ใช้โมเดล gemini-2.5-flash
-        # เพิ่ม tools='google_search' เพื่อเปิดใช้ Google Search
-        model = genai.GenerativeModel('gemini-2.5-flash', tools='google_search')
-        AI_STATUS = "✅ พร้อมใช้งาน"
+        
+        # ✅ แก้ไขตรงนี้: ใส่ tools ให้ถูกรูปแบบ (List of Dict)
+        model = genai.GenerativeModel('gemini-2.5-flash', tools=[{"google_search": {}}])
+        
+        AI_STATUS = "✅ พร้อมใช้งาน (Google Search Enabled)"
+        logger.info("✅ Gemini Model loaded successfully with Google Search tool.")
 except Exception as e:
     AI_STATUS = f"💥 Error: {str(e)}"
+    logger.critical(f"🔥 Critical Error loading AI: {e}")
 
 # ==========================================
 # ระบบจัดการไฟล์ & Setup
@@ -94,6 +108,7 @@ async def refresh_setup_msg(channel):
     except: pass
     embed = discord.Embed(title="📢 ยืนยันตัวตน / แนะนำตัว", description="กดปุ่มด้านล่างเพื่อเปิดห้องส่วนตัวสำหรับแนะนำตัวครับ 👇", color=0x00ff00)
     await channel.send(embed=embed, view=TicketButton())
+    logger.info(f"Refreshed setup message in channel: {channel.name}")
 
 # --- ตัวเลือกเกม (Game Select) ---
 class GameSelect(discord.ui.Select):
@@ -115,13 +130,15 @@ class GameView(discord.ui.View):
         self.selected_value = None
         self.add_item(GameSelect())
 
-# --- ระบบสร้างห้อง & สัมภาษณ์ (ฉบับเต็ม) ---
+# --- ระบบสร้างห้อง & สัมภาษณ์ ---
 class TicketButton(discord.ui.View):
     def __init__(self): super().__init__(timeout=None)
     @discord.ui.button(label="📝 กดเพื่อเริ่มแนะนำตัว", style=discord.ButtonStyle.green, custom_id="start_intro")
     async def create_ticket(self, interaction, button):
         user = interaction.user
         guild = interaction.guild
+        logger.info(f"🎫 User {user.name} requested verification ticket.")
+        
         await interaction.response.send_message("⏳ กำลังเตรียมห้องส่วนตัว...", ephemeral=True)
         overwrites = {guild.default_role: discord.PermissionOverwrite(read_messages=False), user: discord.PermissionOverwrite(read_messages=True, send_messages=True), guild.me: discord.PermissionOverwrite(read_messages=True, send_messages=True)}
         try:
@@ -130,9 +147,12 @@ class TicketButton(discord.ui.View):
             view.add_item(discord.ui.Button(label="👉 เข้าห้องส่วนตัว 👈", style=discord.ButtonStyle.link, url=ch.jump_url))
             await interaction.edit_original_response(content=f"✅ สร้างห้องเรียบร้อย! {user.mention}", view=view)
             await self.start_interview(ch, user, guild)
-        except Exception as e: print(e)
+        except Exception as e:
+            logger.error(f"Failed to create ticket: {e}")
+            print(e)
 
     async def start_interview(self, channel, user, guild):
+        logger.info(f"▶️ Starting interview for {user.name} in {channel.name}")
         data = {"name": "", "age": "", "game": "", "char_name": "-"}
         def check(m): return m.author == user and m.channel == channel
 
@@ -185,6 +205,8 @@ class TicketButton(discord.ui.View):
             try: await user.edit(nick=f"{user.display_name} ({data['name']})")
             except: pass
 
+            logger.info(f"✅ Verified user {user.name} successfully.")
+
             # ปุ่มย้อนกลับ
             if sent_msg:
                 view_back = discord.ui.View()
@@ -194,11 +216,14 @@ class TicketButton(discord.ui.View):
             
             await asyncio.sleep(10)
             await channel.delete()
-        except: await channel.delete()
+        except Exception as e: 
+            logger.error(f"Error during interview with {user.name}: {e}")
+            await channel.delete()
 
 @bot.command()
 async def sync(ctx):
     synced = await bot.tree.sync()
+    logger.info(f"🔄 Commands synced: {len(synced)} commands.")
     await ctx.send(f"✅ Synced {len(synced)} commands.")
 
 # ==========================================
@@ -208,10 +233,10 @@ async def sync(ctx):
 # 1. เช็คระบบ
 @bot.tree.command(name="เช็คระบบ", description="🔧 ดูว่าบอทใช้ Key ตัวไหนอยู่")
 async def check_status(interaction: discord.Interaction):
+    logger.info(f"🔍 [System Check] requested by {interaction.user.name}")
     color = 0x00ff00 if "✅" in AI_STATUS else 0xff0000
     embed = discord.Embed(title="🔧 ข้อมูลระบบ AI", color=color)
     embed.add_field(name="สถานะ", value=AI_STATUS, inline=False)
-    # ✅ เพิ่มบรรทัดแสดงเวอร์ชันตรงนี้
     embed.add_field(name="📦 GenAI Version", value=f"`v{GENAI_VERSION}`", inline=True)
     embed.add_field(name="🔑 กุญแจที่บอทเห็น", value=f"`{KEY_DEBUG_INFO}`", inline=False)
     embed.set_footer(text="ถ้ากุญแจยาวเกิน 39 หรือตัวหน้า/หลังไม่ตรงกับ Google แปลว่าผิด!")
@@ -220,22 +245,25 @@ async def check_status(interaction: discord.Interaction):
 # 2. ถาม AI
 @bot.tree.command(name="ถาม", description="🤖 คุยกับท่านจอมยุทธ์ (AI)")
 async def ask_ai(interaction: discord.Interaction, question: str):
+    logger.info(f"❓ [Ask AI] User: {interaction.user.name} | Q: {question}")
+    
     await interaction.response.defer()
     if model is None:
+        logger.warning("⚠️ AI model is not ready.")
         return await interaction.followup.send(f"⚠️ AI ยังไม่พร้อม: {AI_STATUS}", ephemeral=True)
     try:
-        # ✅ เพิ่ม 2 บรรทัดนี้: ดึงเวลาปัจจุบันมาเก็บไว้
         now = datetime.datetime.now().strftime("%d/%m/%Y %H:%M:%S")
         context_time = f"(ข้อมูลเวลาปัจจุบัน: {now})"
 
-        # ✅ แก้บรรทัดส่ง Prompt: ยัดเวลาใส่ลงไปในข้อความด้วย
         response = model.generate_content(f"{BOT_PERSONA}\n{context_time}\n\nQ: {question}\nA:")
         
         text = response.text[:1900] + "..." if len(response.text) > 1900 else response.text
         embed = discord.Embed(title="🗣️ ท่านจอมยุทธ์กล่าว...", description=text, color=0x00ffcc)
         embed.set_footer(text=f"Q: {question} | โดย {interaction.user.name}")
         await interaction.followup.send(embed=embed)
+        logger.info("✅ [Ask AI] Answered successfully.")
     except Exception as e:
+        logger.error(f"🔥 [Ask AI] Error: {e}")
         await interaction.followup.send(f"😵 Error: {e}", ephemeral=True)
 
 # 3. ดูดวง (Tune)
@@ -262,6 +290,7 @@ async def fortune(interaction: discord.Interaction):
     else: color = 0x3498db
     embed = discord.Embed(title="🎲 ผลการเสี่ยงทายดวงชะตา", description=f"ผลลัพธ์ของ {interaction.user.mention} คือ...\n\n{result}", color=color)
     await interaction.response.send_message(embed=embed)
+    logger.info(f"🎲 Fortune checked for {interaction.user.name}")
 
 # 4. ล้างแชท
 @bot.tree.command(name="ล้าง", description="🧹 ลบข้อความล่าสุด")
@@ -269,14 +298,10 @@ async def fortune(interaction: discord.Interaction):
 async def clear_chat(interaction: discord.Interaction, amount: int):
     if amount > 100: return await interaction.response.send_message("❌ สูงสุด 100", ephemeral=True)
     
-    # ✅ 1. บอก Discord ให้รอก่อน (จะขึ้นว่า Bot is thinking...)
     await interaction.response.defer(ephemeral=True) 
-    
-    # 2. เริ่มลบข้อความ
     await interaction.channel.purge(limit=amount)
-    
-    # 3. ส่งข้อความแจ้งเมื่อเสร็จ (ใช้ followup แทน response)
     await interaction.followup.send("🧹 เรียบร้อย!", ephemeral=True)
+    logger.info(f"🧹 Cleared {amount} messages in channel {interaction.channel.name} by {interaction.user.name}")
 
 # 5. ล้างห้อง
 @bot.tree.command(name="ล้างห้อง", description="⚠️ Nuke Channel")
@@ -289,6 +314,7 @@ async def nuke_channel(interaction: discord.Interaction):
         new_ch = await interaction.channel.clone(reason="Nuke by Bot")
         await interaction.channel.delete()
         await new_ch.send(f"✨ **ห้องใหม่ไฉไลกว่าเดิม!** (ล้างโดย {interaction.user.mention})")
+        logger.warning(f"💣 Channel Nuked: {interaction.channel.name} by {interaction.user.name}")
     
     btn = discord.ui.Button(label="ยืนยันที่จะล้างห้อง?", style=discord.ButtonStyle.danger, emoji="💣")
     btn.callback = confirm
@@ -310,14 +336,17 @@ async def list_models(interaction: discord.Interaction):
 
 @bot.event
 async def on_ready():
-    print(f"✅ Logged in as {bot.user}")
+    logger.info(f"🚀 Logged in as {bot.user} (ID: {bot.user.id})")
+    logger.info("✅ Bot is online and ready!")
     bot.add_view(TicketButton())
 
 @bot.command()
 async def setup(ctx):
     await ctx.message.delete()
     await refresh_setup_msg(ctx.channel)
+    logger.info(f"🛠️ Setup command used in {ctx.channel.name}")
 
 keep_alive()
-# ลบ try/except ออก ให้เหลือแค่บรรทัดนี้บรรทัดเดียวเพียวๆ เลยครับ
+
+# ✅ ใช้คำสั่งปกติ ไม่ต้องมี try...except ครอบ เพื่อให้เห็น Error เต็มๆ
 bot.run(os.environ['TOKEN'])
