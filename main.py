@@ -51,7 +51,7 @@ try:
         KEY_DEBUG_INFO = f"{start_char}...{end_char} (ยาว: {k_len} ตัวอักษร)"
         
         genai.configure(api_key=api_key)
-        model = genai.GenerativeModel('gemini-1.5-pro-001')
+        model = genai.GenerativeModel("gemini-1.5-pro")
         AI_STATUS = "✅ พร้อมใช้งาน"
 except Exception as e:
     AI_STATUS = f"💥 Error: {str(e)}"
