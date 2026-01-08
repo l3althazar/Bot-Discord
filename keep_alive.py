@@ -23,6 +23,10 @@ html_code = """
             --text: #e0e0e0;
         }
 
+        * {
+            box-sizing: border-box;
+        }
+
         body {
             background-color: var(--bg);
             color: var(--text);
@@ -30,16 +34,22 @@ html_code = """
             margin: 0;
             padding: 0;
             overflow-x: hidden;
-            /* พื้นหลังไล่สี */
-            background: radial-gradient(circle at center, #1a0000 0%, #000000 100%);
+            
+            /* 🔥 แก้ไขพื้นหลัง: ใส่รูปปราสาทโกธิค + เคลือบเงาสีดำแดง 🔥 */
+            background: linear-gradient(rgba(0, 0, 0, 0.6), rgba(30, 0, 0, 0.85)),
+                        url('https://images.unsplash.com/photo-1533154683836-84ea7a0bc310?q=80&w=2070&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D');
+            background-repeat: no-repeat;
+            background-position: center center;
+            background-attachment: fixed; /* ทำให้รูปพื้นหลังอยู่กับที่เวลาเลื่อนหน้าจอ */
+            background-size: cover; /* ขยายรูปให้เต็มจอเสมอ */
         }
 
-        /* --- 🌫️ พื้นหลังหมอก (CSS Only) --- */
+        /* --- 🌫️ พื้นหลังหมอก --- */
         .fog-container {
             position: fixed;
             top: 0; left: 0; width: 100%; height: 100%;
             overflow: hidden;
-            z-index: -1;
+            z-index: -1; /* อยู่หลังเนื้อหา แต่อยู่หน้ารูปพื้นหลัง body */
             pointer-events: none;
         }
         .fog-img {
@@ -49,7 +59,7 @@ html_code = """
             background: url('https://raw.githubusercontent.com/danielstuart14/CSS_FOG_ANIMATION/master/fog1.png') repeat-x;
             background-size: contain;
             animation: fog 60s linear infinite;
-            opacity: 0.3;
+            opacity: 0.4; /* เพิ่มความเข้มหมอกนิดหน่อยให้เห็นชัดบนปราสาท */
         }
         .fog-img-2 {
             background: url('https://raw.githubusercontent.com/danielstuart14/CSS_FOG_ANIMATION/master/fog2.png') repeat-x;
@@ -57,20 +67,21 @@ html_code = """
             animation: fog 40s linear infinite;
             z-index: -1;
             top: 30%;
-            opacity: 0.2;
+            opacity: 0.3;
         }
         @keyframes fog { 0% { transform: translate3d(0, 0, 0); } 100% { transform: translate3d(-200vw, 0, 0); } }
 
         /* --- Navbar --- */
         .navbar {
-            background: rgba(10, 0, 0, 0.9);
+            background: rgba(10, 0, 0, 0.95);
             padding: 15px 40px;
             display: flex;
             justify-content: space-between;
             align-items: center;
             position: fixed;
             top: 0;
-            width: 90%;
+            left: 0;
+            width: 100%;
             z-index: 1000;
             border-bottom: 2px solid var(--primary);
             box-shadow: 0 0 20px rgba(255, 0, 0, 0.3);
@@ -91,7 +102,6 @@ html_code = """
             letter-spacing: 2px;
         }
 
-        /* 🔥 สถานะ Online บน Navbar */
         .status-badge-nav {
             font-family: 'Kanit', sans-serif;
             font-size: 0.8em;
@@ -134,10 +144,9 @@ html_code = """
             justify-content: center;
             align-items: center;
             text-align: center;
-            padding-top: 80px;
+            padding-top: 100px;
         }
 
-        /* รูปบอทตรงกลาง (ใส่ลิงก์ใหม่ให้แล้วครับ) */
         .bot-img-main {
             width: 220px; height: 220px;
             border-radius: 50%;
@@ -150,14 +159,13 @@ html_code = """
             background-color: #000;
         }
 
-        /* 🔥 ชื่อบอทแบบ Roman: ดำ ขอบแดง */
         h1.roman-title {
             font-family: 'Cinzel', serif;
             font-size: 5em;
             margin: 0;
-            color: #000000; /* ตัวสีดำ */
-            -webkit-text-stroke: 2px var(--primary); /* ขอบสีแดง */
-            text-shadow: 0 0 30px rgba(255, 0, 0, 0.6); /* เงาสีแดงให้ฟุ้ง */
+            color: #000000;
+            -webkit-text-stroke: 2px var(--primary);
+            text-shadow: 0 0 30px rgba(255, 0, 0, 0.6);
             text-transform: uppercase;
             letter-spacing: 5px;
             line-height: 1.1;
@@ -169,6 +177,10 @@ html_code = """
             border-left: 3px solid var(--primary);
             padding-left: 15px;
             background: linear-gradient(90deg, rgba(255,0,0,0.1), transparent);
+            /* เพิ่มพื้นหลังจางๆ ให้ข้อความอ่านง่ายขึ้นบนรูปปราสาท */
+            background-color: rgba(0, 0, 0, 0.4); 
+            padding: 10px 15px;
+            border-radius: 0 10px 10px 0;
         }
 
         /* --- Stats Row --- */
@@ -182,8 +194,10 @@ html_code = """
         /* --- Services Section --- */
         .services-section {
             padding: 80px 20px;
-            background: rgba(10, 0, 0, 0.5);
+            /* ปรับพื้นหลังให้เข้มขึ้น เพื่อบังรูปปราสาทในส่วนนี้ */
+            background: rgba(5, 0, 0, 0.85);
             text-align: center;
+            backdrop-filter: blur(5px); /* เบลอฉากหลังนิดหน่อย */
         }
         .section-header {
             font-family: 'Cinzel', serif;
@@ -203,7 +217,7 @@ html_code = """
         }
 
         .service-card {
-            background: #111;
+            background: rgba(20, 0, 0, 0.8); /* พื้นหลังการ์ดเข้มๆ โปร่งแสงนิดๆ */
             padding: 30px;
             border: 1px solid #333;
             border-radius: 10px;
@@ -215,16 +229,16 @@ html_code = """
             content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 3px;
             background: var(--primary); transform: scaleX(0); transition: 0.3s;
         }
-        .service-card:hover { transform: translateY(-10px); box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+        .service-card:hover { transform: translateY(-10px); box-shadow: 0 10px 30px rgba(255, 0, 0, 0.2); border-color: var(--primary); }
         .service-card:hover::before { transform: scaleX(1); }
         
         .service-icon { font-size: 2.5em; color: var(--primary); margin-bottom: 15px; }
         .service-card h3 { color: white; margin-bottom: 10px; font-family: 'Cinzel', serif; }
-        .service-card p { color: #999; font-size: 0.95em; line-height: 1.6; }
+        .service-card p { color: #bbb; font-size: 0.95em; line-height: 1.6; }
 
         /* Footer */
         footer {
-            padding: 30px; text-align: center; border-top: 1px solid #333; font-size: 0.9em; color: #555;
+            padding: 30px; text-align: center; border-top: 1px solid #333; font-size: 0.9em; color: #777;
             background: #000;
         }
 
@@ -316,7 +330,7 @@ html_code = """
 
     <footer>
         <p>© 2026 Devils DenBot. All rights reserved.</p>
-        <p style="font-size: 0.8em; color: #333;">Design by ท่านจอมยุทธ์</p>
+        <p style="font-size: 0.8em; color: #555;">Design by ท่านจอมยุทธ์</p>
     </footer>
 
     <div style="position: fixed; bottom: 20px; right: 20px; z-index: 2000;">
