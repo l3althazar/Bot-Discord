@@ -31,7 +31,7 @@ bot = commands.Bot(command_prefix='-', intents=intents)
 # ⚙️ 2. ตั้งค่า (แก้ไขชื่อห้อง/ยศ ตรงนี้)
 # ==========================================
 PUBLIC_CHANNEL = "ห้องแนะนำตัว"
-CHANNEL_LEAVE = "ห้องแจ้งลา"  # ✅ ห้องสำหรับแปะใบลา
+CHANNEL_LEAVE = "ห้องแจ้งลา"  # ✅ ต้องมีห้องนี้สำหรับแปะใบลา
 ALLOWED_CHANNEL_FORTUNE = "ห้องเช็คดวง"
 
 ROLE_VERIFIED = "‹ แนะนำตัวแล้ว ›"
@@ -216,7 +216,7 @@ class TicketButton(discord.ui.View):
                 await channel.send(embed=discord.Embed(title="⚔️ ชื่อตัวละครของคุณคือ?", color=0xe74c3c))
                 data["char_name"] = (await bot.wait_for("message", check=check, timeout=300)).content
                 
-                # 3.2 ถามอาชีพ
+                # 3.2 ถามอาชีพ (สุดท้าย)
                 view_class = discord.ui.View()
                 select_class = ClassSelect()
                 view_class.add_item(select_class)
@@ -286,13 +286,24 @@ class TicketButton(discord.ui.View):
             await channel.delete()
         except: await channel.delete()
 
-# --- Force Sync ---
+# --- Force Sync & Cleanup Duplicates (ตัวแก้คำสั่งซ้ำ) ---
 @bot.command()
 async def sync(ctx):
+    msg = await ctx.send("🔄 กำลังล้างคำสั่งซ้ำและซิงค์ใหม่... (รอสักครู่)")
+    
+    # 1. ล้างคำสั่ง Global (ตัวการที่ทำให้ซ้ำกับ Guild)
+    bot.tree.clear_commands(guild=None)
+    await bot.tree.sync(guild=None)
+    
+    # 2. ล้างคำสั่งใน Guild นี้ก่อนเพื่อความชัวร์
     bot.tree.clear_commands(guild=ctx.guild)
+    await bot.tree.sync(guild=ctx.guild)
+
+    # 3. เพิ่มคำสั่งกลับเข้าไปใหม่เฉพาะ Guild นี้ (เพื่อให้ขึ้นทันที)
     bot.tree.copy_global_to(guild=ctx.guild)
     synced = await bot.tree.sync(guild=ctx.guild)
-    await ctx.send(f"✅ **Force Sync เรียบร้อย!** เจอ {len(synced)} คำสั่ง")
+    
+    await msg.edit(content=f"✅ **ล้างคำสั่งซ้ำ + ซิงค์ใหม่เรียบร้อย!**\nเจอทั้งหมด {len(synced)} คำสั่ง\n\n*หมายเหตุ: ถ้ายังเห็นซ้ำ ให้ปิดแอป Discord แล้วเปิดใหม่ (Restart App)*")
 
 @bot.command()
 async def setup(ctx):
@@ -303,7 +314,7 @@ async def setup(ctx):
 # 🔥 Slash Commands
 # ==========================================
 
-# 1. ระบบลา
+# 1. ระบบลา (กลับมาแล้ว!)
 @bot.tree.command(name="ลา", description="📝 เขียนใบลาหยุด/ลากิจกรรม")
 async def leave_request(interaction: discord.Interaction):
     await interaction.response.send_modal(LeaveModal())
