@@ -91,7 +91,7 @@ def save_json(filename, data):
 leave_data = load_json(LEAVE_FILE)
 
 # ==========================================
-# 5. ระบบ GUI (ปุ่ม, ฟอร์ม, ดรอปดาวน์)
+# 5. ระบบ GUI (ใบลา & แนะนำตัว)
 # ==========================================
 
 # --- ฟังก์ชันรีเฟรชปุ่มลา (ให้อยู่ล่างสุดเสมอ) ---
@@ -118,7 +118,7 @@ class LeaveModal(discord.ui.Modal, title="📜 แบบฟอร์มขอล
     reason = discord.ui.TextInput(label="เหตุผล (ถ้ามี)", style=discord.TextStyle.paragraph, required=False)
 
     async def on_submit(self, interaction: discord.Interaction):
-        # 1. ตอบกลับ Interaction ก่อน (เพื่อปิด Modal)
+        # ตอบกลับ Interaction แบบเงียบๆ ก่อนเพื่อกัน Timeout
         await interaction.response.defer(ephemeral=True)
 
         tz_thai = datetime.timezone(datetime.timedelta(hours=7))
@@ -141,9 +141,9 @@ class LeaveModal(discord.ui.Modal, title="📜 แบบฟอร์มขอล
         embed = discord.Embed(title="📩 มีสาส์นขอลาหยุด!", color=0xff9900)
         embed.set_thumbnail(url=interaction.user.avatar.url if interaction.user.avatar else None)
         
-        # - ชื่อ + IGN
+        # - ชื่อ + IGN (บรรทัดเดียวกัน)
         embed.add_field(name="👤 จอมยุทธ์", value=f"{interaction.user.display_name} (IGN: {self.char_name.value})", inline=False)
-        # - ประเภท (ขึ้นบรรทัดใหม่)
+        # - ประเภท (ขึ้นบรรทัดใหม่ด้วย inline=False)
         embed.add_field(name="📌 ประเภท", value=self.leave_type.value, inline=False)
         # - วันที่
         embed.add_field(name="📅 วันที่/เวลา", value=self.leave_date.value, inline=False)
@@ -152,7 +152,7 @@ class LeaveModal(discord.ui.Modal, title="📜 แบบฟอร์มขอล
         
         embed.set_footer(text=f"ยื่นเรื่องเมื่อ: {timestamp}")
 
-        # 3. ส่งใบลาลงห้อง (พร้อม Tag ชื่อด้านล่าง)
+        # 3. ส่งใบลาลงห้อง (เอา @ชื่อ ไปไว้ content ข้างนอก)
         await interaction.channel.send(content=f"**ผู้ยื่นเรื่อง:** {interaction.user.mention}", embed=embed)
         
         # 4. แจ้งเตือนส่วนตัวว่าเสร็จแล้ว
@@ -174,7 +174,8 @@ class GameSelect(discord.ui.Select):
         options = [discord.SelectOption(label="Where Winds Meet", emoji="⚔️"), discord.SelectOption(label="อื่นๆ", emoji="🎮")]
         super().__init__(placeholder="เลือกเกมที่คุณเล่น...", min_values=1, max_values=1, options=options)
     async def callback(self, interaction):
-        self.view.selected_value = self.values[0]
+        # บันทึกค่าลงตัวแปรของ Class เพื่อให้เรียกใช้ได้ง่ายๆ
+        self.selected_value = self.values[0]
         await interaction.response.defer()
         self.view.stop()
 
@@ -188,7 +189,7 @@ class ClassSelect(discord.ui.Select):
         ]
         super().__init__(placeholder="เลือกสายอาชีพหลัก...", min_values=1, max_values=1, options=options)
     async def callback(self, interaction):
-        self.view.selected_value = self.values[0]
+        self.selected_value = self.values[0]
         await interaction.response.defer()
         self.view.stop()
 
@@ -231,7 +232,7 @@ class TicketButton(discord.ui.View):
             await channel.send(embed=discord.Embed(title="3. เลือกเกมที่คุณเล่น", color=0x3498db), view=view_game)
             await view_game.wait()
             
-            # แก้ไข: ดึงค่าจาก Select ให้ถูกต้อง
+            # แก้ไขบั๊ก: ดึงค่าจากตัวแปรที่เก็บไว้ใน callback
             if hasattr(select_game, 'selected_value'):
                 data["game"] = select_game.selected_value
             else:
@@ -240,7 +241,7 @@ class TicketButton(discord.ui.View):
             data["char_name"] = "-"
             data["class"] = "-"
 
-            # ถ้าเลือก WWM ให้ถามต่อ
+            # ถ้าเลือก WWM ให้ถามต่อ (Logic แก้ไขแล้ว)
             if data["game"] == "Where Winds Meet":
                 # 3.1 ถามชื่อตัวละคร
                 await channel.send(embed=discord.Embed(title="⚔️ ชื่อตัวละครของคุณคือ?", color=0xe74c3c))
