@@ -153,7 +153,6 @@ class GameSelect(discord.ui.Select):
         self.view.selected_value = self.values[0]
         await interaction.response.defer()
         self.view.stop()
-
 class ClassSelect(discord.ui.Select):
     def __init__(self):
         options = [
