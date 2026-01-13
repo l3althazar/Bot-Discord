@@ -31,13 +31,13 @@ bot = commands.Bot(command_prefix='-', intents=intents)
 # ⚙️ 2. ตั้งค่า (แก้ไขชื่อห้อง/ยศ ตรงนี้)
 # ==========================================
 PUBLIC_CHANNEL = "ห้องแนะนำตัว"
-CHANNEL_LEAVE = "ห้องแจ้งลา"  # ✅ ต้องมีห้องนี้สำหรับแปะใบลา
+CHANNEL_LEAVE = "ห้องแจ้งลา"       # ✅ ห้องสำหรับแปะใบลา
 ALLOWED_CHANNEL_FORTUNE = "ห้องเช็คดวง"
 
 ROLE_VERIFIED = "‹ แนะนำตัวแล้ว ›"
 ROLE_WWM = "ข้าคือจอมยุทธ์เด๊ะ"
 
-# ยศสายอาชีพ
+# ยศสายอาชีพ (ต้องสร้างให้ชื่อตรงเป๊ะ)
 ROLE_DPS = "DPS ⚔️"
 ROLE_HEALER = "หมอ💉🩺"
 ROLE_TANK = "แทงค์ 🛡️"
@@ -92,7 +92,7 @@ def save_json(filename, data):
 leave_data = load_json(LEAVE_FILE)
 
 # ==========================================
-# 5. Class และระบบต่างๆ
+# 5. Class และระบบ Intro
 # ==========================================
 
 async def refresh_setup_msg(channel):
@@ -105,7 +105,7 @@ async def refresh_setup_msg(channel):
     embed = discord.Embed(title="📢 ยืนยันตัวตน / แนะนำตัว", description="กดปุ่มด้านล่างเพื่อเปิดห้องส่วนตัวสำหรับแนะนำตัวครับ 👇", color=0x00ff00)
     await channel.send(embed=embed, view=TicketButton())
 
-# --- ฟอร์มขอลา (Modal) ---
+# --- Form: ใบลา (Leave Modal) ---
 class LeaveModal(discord.ui.Modal, title="📜 แบบฟอร์มขอลา (Leave Form)"):
     leave_type = discord.ui.TextInput(label="หัวข้อการลา", placeholder="เช่น ลากิจ, ลาป่วย, ขาด War", required=True)
     leave_date = discord.ui.TextInput(label="วันที่/เวลา", placeholder="เช่น 12-14 ม.ค. หรือ วันนี้ 2 ทุ่ม", required=True)
@@ -144,7 +144,7 @@ class LeaveModal(discord.ui.Modal, title="📜 แบบฟอร์มขอล
         else:
             await interaction.response.send_message("⚠️ บันทึกแล้ว แต่หาห้อง `ห้องแจ้งลา` ไม่เจอ!", ephemeral=True)
 
-# --- ตัวเลือกต่างๆ (Dropdowns) ---
+# --- Select: เลือกเกม ---
 class GameSelect(discord.ui.Select):
     def __init__(self):
         options = [discord.SelectOption(label="Where Winds Meet", emoji="⚔️"), discord.SelectOption(label="อื่นๆ", emoji="🎮")]
@@ -153,6 +153,8 @@ class GameSelect(discord.ui.Select):
         self.view.selected_value = self.values[0]
         await interaction.response.defer()
         self.view.stop()
+
+# --- Select: เลือกอาชีพ ---
 class ClassSelect(discord.ui.Select):
     def __init__(self):
         options = [
@@ -167,6 +169,7 @@ class ClassSelect(discord.ui.Select):
         await interaction.response.defer()
         self.view.stop()
 
+# --- Button: เปิดห้องสัมภาษณ์ ---
 class TicketButton(discord.ui.View):
     def __init__(self): super().__init__(timeout=None)
     @discord.ui.button(label="📝 กดเพื่อเริ่มแนะนำตัว", style=discord.ButtonStyle.green, custom_id="start_intro")
@@ -191,11 +194,11 @@ class TicketButton(discord.ui.View):
         try:
             await channel.send(f"{user.mention} **ยินดีต้อนรับครับ!**")
             
-            # 1. ชื่อ
+            # 1. ถามชื่อ
             await channel.send(embed=discord.Embed(title="1. ชื่อเล่นของคุณคือ?", color=0x3498db))
             data["name"] = (await bot.wait_for("message", check=check, timeout=300)).content
 
-            # 2. อายุ
+            # 2. ถามอายุ
             await channel.send(embed=discord.Embed(title="2. อายุเท่าไหร่?", color=0x3498db))
             data["age"] = (await bot.wait_for("message", check=check, timeout=300)).content
 
@@ -222,10 +225,13 @@ class TicketButton(discord.ui.View):
                 await channel.send(embed=discord.Embed(title="🛡️ เล่นสายอาชีพไหน?", color=0xe74c3c), view=view_class)
                 await view_class.wait()
                 
-                # มอบยศ
+                # --- 🔥 มอบยศและอัปเดตข้อมูล 🔥 ---
+                
+                # ให้ยศเกม WWM
                 role_wwm = discord.utils.get(guild.roles, name=ROLE_WWM)
                 if role_wwm: await user.add_roles(role_wwm)
 
+                # ให้ยศอาชีพ
                 if hasattr(select_class, 'selected_value'):
                     cls = select_class.selected_value
                     data["class"] = cls
@@ -248,7 +254,7 @@ class TicketButton(discord.ui.View):
                         r = discord.utils.get(guild.roles, name=role_to_add)
                         if r: await user.add_roles(r)
 
-            # สรุป
+            # สรุปข้อมูล
             embed = discord.Embed(title="✅ สมาชิกใหม่รายงานตัว!", color=0xffd700)
             desc = f"**ชื่อเล่น :** {data['name']}\n**อายุ :** {data['age']}\n**เกมที่เล่น :** {data['game']}"
             if data["char_name"] != "-": 
@@ -258,6 +264,7 @@ class TicketButton(discord.ui.View):
             if user.avatar: embed.set_thumbnail(url=user.avatar.url)
             embed.set_footer(text=f"แนะนำตัวโดย {user.name}")
 
+            # โพสต์ลงห้องรวม & ลบของเก่า
             pub_ch = discord.utils.get(guild.text_channels, name=PUBLIC_CHANNEL)
             sent_msg = None
             if pub_ch:
@@ -269,9 +276,11 @@ class TicketButton(discord.ui.View):
                 sent_msg = await pub_ch.send(embed=embed)
                 await refresh_setup_msg(pub_ch)
 
+            # ให้ยศ Verified
             role_ver = discord.utils.get(guild.roles, name=ROLE_VERIFIED)
             if role_ver: await user.add_roles(role_ver)
             
+            # เปลี่ยนชื่อ
             try:
                 new_nick = f"{icon_prefix} {user.name} ({data['name']})" if icon_prefix else f"{user.name} ({data['name']})"
                 await user.edit(nick=new_nick)
@@ -302,7 +311,7 @@ async def sync(ctx):
     bot.tree.copy_global_to(guild=ctx.guild)
     synced = await bot.tree.sync(guild=ctx.guild)
     
-    await msg.edit(content=f"✅ **ล้างคำสั่งซ้ำ + ซิงค์ใหม่เรียบร้อย!**\nเจอทั้งหมด {len(synced)} คำสั่ง\n\n*หมายเหตุ: ถ้ายังเห็นซ้ำ ให้ปิดแอป Discord แล้วเปิดใหม่ (Restart App)*")
+    await msg.edit(content=f"✅ **ล้างคำสั่งซ้ำ + ซิงค์ใหม่เรียบร้อย!**\nเจอทั้งหมด {len(synced)} คำสั่ง\n\n*หมายเหตุ: ถ้ายังเห็นซ้ำ ให้กด Ctrl+R (ในคอม) หรือปิดแอปแล้วเปิดใหม่*")
 
 @bot.command()
 async def setup(ctx):
@@ -313,7 +322,7 @@ async def setup(ctx):
 # 🔥 Slash Commands
 # ==========================================
 
-# 1. ระบบลา (กลับมาแล้ว!)
+# 1. ระบบลา
 @bot.tree.command(name="ลา", description="📝 เขียนใบลาหยุด/ลากิจกรรม")
 async def leave_request(interaction: discord.Interaction):
     await interaction.response.send_modal(LeaveModal())
