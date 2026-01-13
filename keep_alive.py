@@ -1,8 +1,10 @@
 from flask import Flask, render_template_string
 from threading import Thread
+import os  # ✅ เพิ่ม module นี้เพื่อให้รับค่า Port จาก Render ได้
 
 app = Flask('')
 
+# --- ส่วน HTML ดีไซน์ปราสาททมิฬ ---
 html_code = """
 <!DOCTYPE html>
 <html lang="th">
@@ -244,7 +246,9 @@ def home():
     return render_template_string(html_code)
 
 def run():
-    app.run(host='0.0.0.0', port=8080)
+    # ✅ แก้ไขตรงนี้: รับ Port จาก Render อัตโนมัติ
+    port = int(os.environ.get("PORT", 8080))
+    app.run(host='0.0.0.0', port=port)
 
 def keep_alive():
     t = Thread(target=run)
