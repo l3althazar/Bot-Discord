@@ -1,10 +1,9 @@
 from flask import Flask, render_template_string
-from threading import Thread
-import os  # ✅ เพิ่ม module นี้เพื่อให้รับค่า Port จาก Render ได้
 
+# สร้างแอป Flask (Gunicorn จะมองหาตัวแปรชื่อ 'app' นี้)
 app = Flask('')
 
-# --- ส่วน HTML ดีไซน์ปราสาททมิฬ ---
+# --- ส่วน HTML ดีไซน์ปราสาททมิฬ (ของท่าน) ---
 html_code = """
 <!DOCTYPE html>
 <html lang="th">
@@ -245,14 +244,6 @@ html_code = """
 def home():
     return render_template_string(html_code)
 
-def run():
-    # ✅ แก้ไขตรงนี้: รับ Port จาก Render อัตโนมัติ
-    port = int(os.environ.get("PORT", 8080))
-    app.run(host='0.0.0.0', port=port)
-
-def keep_alive():
-    t = Thread(target=run)
-    t.start()
-
-if __name__ == "__main__":
-    keep_alive()
+# ⚠️ หมายเหตุ: เราไม่ต้องมีฟังก์ชัน run() หรือ keep_alive() แล้ว
+# เพราะคำสั่ง Start Command: "gunicorn keep_alive:app ..." จะจัดการเรื่อง Port และการรัน Server ให้เองครับ
+# การใส่ run() ซ้อนเข้าไปอาจทำให้ Port ตีกันและ Error ได้
