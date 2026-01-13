@@ -31,7 +31,7 @@ bot = commands.Bot(command_prefix='-', intents=intents)
 # ⚙️ 2. ตั้งค่า (แก้ไขชื่อห้อง/ยศ ตรงนี้)
 # ==========================================
 PUBLIC_CHANNEL = "ห้องแนะนำตัว"
-CHANNEL_LEAVE = "ห้องแจ้งลา"       # ✅ ห้องสำหรับแปะใบลา
+CHANNEL_LEAVE = "ห้องแจ้งลา"       # ✅ ห้องสำหรับแปะปุ่มใบลา
 ALLOWED_CHANNEL_FORTUNE = "ห้องเช็คดวง"
 
 ROLE_VERIFIED = "‹ แนะนำตัวแล้ว ›"
@@ -43,7 +43,7 @@ ROLE_HEALER = "หมอ💉🩺"
 ROLE_TANK = "แทงค์ 🛡️"
 ROLE_HYBRID = "ไฮบริด 🧬"
 
-LEAVE_FILE = "leaves.json" # ไฟล์เก็บข้อมูลการลา
+LEAVE_FILE = "leaves.json"
 
 # ==========================================
 # 🧠 3. AI Setup
@@ -78,7 +78,7 @@ except Exception as e:
     logger.critical(f"🔥 Critical Error loading AI: {e}")
 
 # ==========================================
-# 4. ระบบจัดการไฟล์ (สำหรับใบลา)
+# 4. ระบบจัดการไฟล์
 # ==========================================
 def load_json(filename):
     if not os.path.exists(filename): return []
@@ -92,21 +92,13 @@ def save_json(filename, data):
 leave_data = load_json(LEAVE_FILE)
 
 # ==========================================
-# 5. Class และระบบ Intro
+# 5. ระบบ GUI (ปุ่ม, ฟอร์ม, ดรอปดาวน์)
 # ==========================================
-
-async def refresh_setup_msg(channel):
-    try:
-        async for message in channel.history(limit=20):
-            if message.author == bot.user and message.embeds and message.embeds[0].title == "📢 ยืนยันตัวตน / แนะนำตัว":
-                await message.delete()
-    except: pass
-    
-    embed = discord.Embed(title="📢 ยืนยันตัวตน / แนะนำตัว", description="กดปุ่มด้านล่างเพื่อเปิดห้องส่วนตัวสำหรับแนะนำตัวครับ 👇", color=0x00ff00)
-    await channel.send(embed=embed, view=TicketButton())
 
 # --- Form: ใบลา (Leave Modal) ---
 class LeaveModal(discord.ui.Modal, title="📜 แบบฟอร์มขอลา (Leave Form)"):
+    # เพิ่มช่องชื่อตัวละครตามขอ
+    char_name = discord.ui.TextInput(label="ชื่อตัวละครในเกม", placeholder="ระบุชื่อตัวละครของท่าน...", required=True)
     leave_type = discord.ui.TextInput(label="หัวข้อการลา", placeholder="เช่น ลากิจ, ลาป่วย, ขาด War", required=True)
     leave_date = discord.ui.TextInput(label="วันที่/เวลา", placeholder="เช่น 12-14 ม.ค. หรือ วันนี้ 2 ทุ่ม", required=True)
     reason = discord.ui.TextInput(label="เหตุผล (ถ้ามี)", style=discord.TextStyle.paragraph, required=False)
@@ -117,6 +109,7 @@ class LeaveModal(discord.ui.Modal, title="📜 แบบฟอร์มขอล
 
         entry = {
             "user": interaction.user.display_name,
+            "char_name": self.char_name.value, # บันทึกชื่อตัวละคร
             "id": interaction.user.id,
             "type": self.leave_type.value,
             "date": self.leave_date.value,
@@ -127,24 +120,42 @@ class LeaveModal(discord.ui.Modal, title="📜 แบบฟอร์มขอล
         leave_data.append(entry)
         save_json(LEAVE_FILE, leave_data)
 
-        guild = interaction.guild
-        leave_channel = discord.utils.get(guild.text_channels, name=CHANNEL_LEAVE)
-        
+        # ส่งผลลัพธ์ลงห้องเดิม (ห้องที่กดปุ่มมา)
         embed = discord.Embed(title="📩 มีสาส์นขอลาหยุด!", color=0xff9900)
         embed.set_thumbnail(url=interaction.user.avatar.url if interaction.user.avatar else None)
-        embed.add_field(name="👤 จอมยุทธ์", value=interaction.user.mention, inline=True)
+        embed.add_field(name="👤 จอมยุทธ์", value=f"{interaction.user.mention}\n(IGN: {self.char_name.value})", inline=True)
         embed.add_field(name="📌 ประเภท", value=self.leave_type.value, inline=True)
         embed.add_field(name="📅 วันที่/เวลา", value=self.leave_date.value, inline=False)
         embed.add_field(name="📝 เหตุผล", value=self.reason.value or "-", inline=False)
         embed.set_footer(text=f"ยื่นเรื่องเมื่อ: {timestamp}")
 
-        if leave_channel:
-            await leave_channel.send(embed=embed)
-            await interaction.response.send_message(f"✅ ส่งใบลาไปที่ {leave_channel.mention} แล้ว!", ephemeral=True)
-        else:
-            await interaction.response.send_message("⚠️ บันทึกแล้ว แต่หาห้อง `ห้องแจ้งลา` ไม่เจอ!", ephemeral=True)
+        await interaction.channel.send(embed=embed)
+        await interaction.response.send_message(f"✅ ส่งใบลาเรียบร้อยแล้วครับ!", ephemeral=True)
 
-# --- Select: เลือกเกม ---
+# --- Button: ปุ่มกดเปิดใบลา ---
+class LeaveButtonView(discord.ui.View):
+    def __init__(self): super().__init__(timeout=None)
+    @discord.ui.button(label="📝 เขียนใบลา", style=discord.ButtonStyle.danger, custom_id="open_leave_modal", emoji="📜")
+    async def open_leave(self, interaction, button):
+        await interaction.response.send_modal(LeaveModal())
+
+# --- ฟังก์ชันรีเฟรชปุ่มลา (ให้อยู่ล่างสุดเสมอ) ---
+async def refresh_leave_msg(guild):
+    channel = discord.utils.get(guild.text_channels, name=CHANNEL_LEAVE)
+    if not channel: return
+
+    # ลบข้อความเก่าของบอทที่เป็นปุ่มลา
+    try:
+        async for message in channel.history(limit=10):
+            if message.author == bot.user and message.embeds and message.embeds[0].title == "📢 แจ้งลาหยุด / ลากิจกรรม":
+                await message.delete()
+    except: pass
+
+    # ส่งปุ่มใหม่
+    embed = discord.Embed(title="📢 แจ้งลาหยุด / ลากิจกรรม", description="กดปุ่มด้านล่างเพื่อกรอกแบบฟอร์มใบลาครับ 👇", color=0xe74c3c)
+    await channel.send(embed=embed, view=LeaveButtonView())
+
+# --- Intro System Classes ---
 class GameSelect(discord.ui.Select):
     def __init__(self):
         options = [discord.SelectOption(label="Where Winds Meet", emoji="⚔️"), discord.SelectOption(label="อื่นๆ", emoji="🎮")]
@@ -154,7 +165,6 @@ class GameSelect(discord.ui.Select):
         await interaction.response.defer()
         self.view.stop()
 
-# --- Select: เลือกอาชีพ ---
 class ClassSelect(discord.ui.Select):
     def __init__(self):
         options = [
@@ -169,7 +179,6 @@ class ClassSelect(discord.ui.Select):
         await interaction.response.defer()
         self.view.stop()
 
-# --- Button: เปิดห้องสัมภาษณ์ ---
 class TicketButton(discord.ui.View):
     def __init__(self): super().__init__(timeout=None)
     @discord.ui.button(label="📝 กดเพื่อเริ่มแนะนำตัว", style=discord.ButtonStyle.green, custom_id="start_intro")
@@ -194,11 +203,11 @@ class TicketButton(discord.ui.View):
         try:
             await channel.send(f"{user.mention} **ยินดีต้อนรับครับ!**")
             
-            # 1. ถามชื่อ
+            # 1. ชื่อ
             await channel.send(embed=discord.Embed(title="1. ชื่อเล่นของคุณคือ?", color=0x3498db))
             data["name"] = (await bot.wait_for("message", check=check, timeout=300)).content
 
-            # 2. ถามอายุ
+            # 2. อายุ
             await channel.send(embed=discord.Embed(title="2. อายุเท่าไหร่?", color=0x3498db))
             data["age"] = (await bot.wait_for("message", check=check, timeout=300)).content
 
@@ -213,25 +222,23 @@ class TicketButton(discord.ui.View):
             data["char_name"] = "-"
             data["class"] = "-"
 
+            # ถ้าเลือก WWM ให้ถามต่อ
             if data["game"] == "Where Winds Meet":
                 # 3.1 ถามชื่อตัวละคร
                 await channel.send(embed=discord.Embed(title="⚔️ ชื่อตัวละครของคุณคือ?", color=0xe74c3c))
                 data["char_name"] = (await bot.wait_for("message", check=check, timeout=300)).content
                 
-                # 3.2 ถามอาชีพ (สุดท้าย)
+                # 3.2 ถามอาชีพ
                 view_class = discord.ui.View()
                 select_class = ClassSelect()
                 view_class.add_item(select_class)
                 await channel.send(embed=discord.Embed(title="🛡️ เล่นสายอาชีพไหน?", color=0xe74c3c), view=view_class)
                 await view_class.wait()
                 
-                # --- 🔥 มอบยศและอัปเดตข้อมูล 🔥 ---
-                
-                # ให้ยศเกม WWM
+                # --- Process Roles & Name ---
                 role_wwm = discord.utils.get(guild.roles, name=ROLE_WWM)
                 if role_wwm: await user.add_roles(role_wwm)
 
-                # ให้ยศอาชีพ
                 if hasattr(select_class, 'selected_value'):
                     cls = select_class.selected_value
                     data["class"] = cls
@@ -254,7 +261,7 @@ class TicketButton(discord.ui.View):
                         r = discord.utils.get(guild.roles, name=role_to_add)
                         if r: await user.add_roles(r)
 
-            # สรุปข้อมูล
+            # สรุป
             embed = discord.Embed(title="✅ สมาชิกใหม่รายงานตัว!", color=0xffd700)
             desc = f"**ชื่อเล่น :** {data['name']}\n**อายุ :** {data['age']}\n**เกมที่เล่น :** {data['game']}"
             if data["char_name"] != "-": 
@@ -264,23 +271,22 @@ class TicketButton(discord.ui.View):
             if user.avatar: embed.set_thumbnail(url=user.avatar.url)
             embed.set_footer(text=f"แนะนำตัวโดย {user.name}")
 
-            # โพสต์ลงห้องรวม & ลบของเก่า
+            # ส่งลงห้องรวม
             pub_ch = discord.utils.get(guild.text_channels, name=PUBLIC_CHANNEL)
             sent_msg = None
             if pub_ch:
+                # ลบอันเก่า
                 async for msg in pub_ch.history(limit=50):
                     if msg.author == bot.user and msg.embeds and msg.embeds[0].footer.text == f"แนะนำตัวโดย {user.name}":
                         try: await msg.delete()
                         except: pass
                         break
                 sent_msg = await pub_ch.send(embed=embed)
-                await refresh_setup_msg(pub_ch)
+                await refresh_setup_msg(pub_ch) # รีเฟรชปุ่มแนะนำตัว
 
-            # ให้ยศ Verified
             role_ver = discord.utils.get(guild.roles, name=ROLE_VERIFIED)
             if role_ver: await user.add_roles(role_ver)
             
-            # เปลี่ยนชื่อ
             try:
                 new_nick = f"{icon_prefix} {user.name} ({data['name']})" if icon_prefix else f"{user.name} ({data['name']})"
                 await user.edit(nick=new_nick)
@@ -294,40 +300,60 @@ class TicketButton(discord.ui.View):
             await channel.delete()
         except: await channel.delete()
 
-# --- 🔥 Force Sync (กู้คืนคำสั่ง) ---
+# --- Refresh Intro Button ---
+async def refresh_setup_msg(channel):
+    try:
+        async for message in channel.history(limit=20):
+            if message.author == bot.user and message.embeds and message.embeds[0].title == "📢 ยืนยันตัวตน / แนะนำตัว":
+                await message.delete()
+    except: pass
+    
+    embed = discord.Embed(title="📢 ยืนยันตัวตน / แนะนำตัว", description="กดปุ่มด้านล่างเพื่อเปิดห้องส่วนตัวสำหรับแนะนำตัวครับ 👇", color=0x00ff00)
+    await channel.send(embed=embed, view=TicketButton())
+
+# --- 🔥 Force Sync 🔥 ---
 @bot.command()
 async def sync(ctx):
-    # ยัดคำสั่งที่มีในไฟล์ กลับเข้าไปใน Server นี้ทันที
+    bot.tree.clear_commands(guild=ctx.guild)
     bot.tree.copy_global_to(guild=ctx.guild)
     synced = await bot.tree.sync(guild=ctx.guild)
-    await ctx.send(f"✅ **กู้คืนคำสั่งสำเร็จ!** เจอทั้งหมด {len(synced)} คำสั่ง")
+    await bot.tree.sync() # Sync global ด้วยเพื่อให้ป้ายขึ้น
+    await ctx.send(f"✅ **Force Sync เรียบร้อย!** เจอทั้งหมด {len(synced)} คำสั่ง")
 
 @bot.command()
 async def setup(ctx):
     await ctx.message.delete()
-    await refresh_setup_msg(ctx.channel)
+    # 1. รีเฟรชปุ่มแนะนำตัว
+    if ctx.channel.name == PUBLIC_CHANNEL:
+        await refresh_setup_msg(ctx.channel)
+    # 2. รีเฟรชปุ่มลา (ถ้าพิมพ์ในห้องลา)
+    elif ctx.channel.name == CHANNEL_LEAVE:
+        await refresh_leave_msg(ctx.guild)
+    else:
+        # หรือถ้าพิมพ์ที่อื่น ให้พยายามรีเฟรชทั้งสองห้อง
+        pub_ch = discord.utils.get(ctx.guild.text_channels, name=PUBLIC_CHANNEL)
+        leave_ch = discord.utils.get(ctx.guild.text_channels, name=CHANNEL_LEAVE)
+        if pub_ch: await refresh_setup_msg(pub_ch)
+        if leave_ch: await refresh_leave_msg(ctx.guild)
+        await ctx.send("✅ รีเฟรชปุ่มทั้ง 2 ห้องเรียบร้อย!")
 
 # ==========================================
 # 🔥 Slash Commands
 # ==========================================
 
-# 1. ระบบลา
-@bot.tree.command(name="ลา", description="📝 เขียนใบลาหยุด/ลากิจกรรม")
-async def leave_request(interaction: discord.Interaction):
-    await interaction.response.send_modal(LeaveModal())
-
-# 2. เช็คคนลา
+# 1. เช็คคนลา
 @bot.tree.command(name="เช็คคนลา", description="📋 ดูรายชื่อคนที่ลาอยู่")
 async def check_leaves(interaction: discord.Interaction):
     if not leave_data: return await interaction.response.send_message("✅ ไม่มีใครลาเลยครับ!", ephemeral=True)
     embed = discord.Embed(title="📋 รายชื่อจอมยุทธ์ที่ขอลาพัก", color=0xff9900)
     desc = ""
     for i, entry in enumerate(leave_data, 1):
-        desc += f"**{i}. {entry['user']}**\n📌 {entry['type']} | 📅 {entry['date']}\n📝 {entry['reason']}\n\n"
+        char_name = entry.get('char_name', '-')
+        desc += f"**{i}. {entry['user']} (IGN: {char_name})**\n📌 {entry['type']} | 📅 {entry['date']}\n📝 {entry['reason']}\n\n"
     embed.description = desc
     await interaction.response.send_message(embed=embed)
 
-# 3. ล้างโพยลา
+# 2. ล้างโพยลา
 @bot.tree.command(name="ล้างโพยลา", description="🧹 ล้างรายชื่อคนลาทั้งหมด")
 @app_commands.checks.has_permissions(administrator=True)
 async def clear_leaves(interaction: discord.Interaction):
@@ -335,7 +361,7 @@ async def clear_leaves(interaction: discord.Interaction):
     save_json(LEAVE_FILE, leave_data)
     await interaction.response.send_message("🧹 ล้างบัญชีคนลาเรียบร้อย!", ephemeral=False)
 
-# 4. เช็คระบบ
+# 3. เช็คระบบ
 @bot.tree.command(name="เช็คระบบ", description="🔧 ดูสถานะบอท")
 async def check_status(interaction: discord.Interaction):
     color = 0x00ff00 if "✅" in AI_STATUS else 0xff0000
@@ -345,7 +371,7 @@ async def check_status(interaction: discord.Interaction):
     embed.add_field(name="🔑 Key", value=f"`{KEY_DEBUG_INFO}`", inline=False)
     await interaction.response.send_message(embed=embed, ephemeral=True)
 
-# 5. เช็คโมเดล
+# 4. เช็คโมเดล
 @bot.tree.command(name="เช็คโมเดล", description="📂 ดูโมเดลที่ใช้ได้")
 async def list_models(interaction: discord.Interaction):
     await interaction.response.defer(ephemeral=True)
@@ -354,7 +380,7 @@ async def list_models(interaction: discord.Interaction):
         await interaction.followup.send(msg[:1900])
     except: await interaction.followup.send("❌ เช็คไม่ได้")
 
-# 6. ถาม AI
+# 5. ถาม AI
 @bot.tree.command(name="ถาม", description="🤖 คุยกับ AI")
 async def ask_ai(interaction: discord.Interaction, question: str):
     await interaction.response.defer()
@@ -369,7 +395,7 @@ async def ask_ai(interaction: discord.Interaction, question: str):
         await interaction.followup.send(embed=embed)
     except Exception as e: await interaction.followup.send(f"😵 Error: {e}", ephemeral=True)
 
-# 7. ดูดวง (ฉบับเต็ม)
+# 6. ดูดวง (ฉบับเต็ม)
 @bot.tree.command(name="ดูดวง", description="🔮 เช็คดวงกาชา/Tune")
 async def fortune(interaction: discord.Interaction):
     if interaction.channel.name != ALLOWED_CHANNEL_FORTUNE:
@@ -388,8 +414,6 @@ async def fortune(interaction: discord.Interaction):
         "🧧 **GM รักคุณ** (รักที่จะกินตังค์คุณ)"
     ]
     result = random.choice(fortunes)
-    
-    # Logic สี
     if "เทพเจ้า" in result or "แสง" in result: color = 0xffd700
     elif "เกลือ" in result or "ถังแตก" in result: color = 0x000000
     else: color = 0x3498db
@@ -397,7 +421,7 @@ async def fortune(interaction: discord.Interaction):
     embed = discord.Embed(title="🎲 ผลการเสี่ยงทาย", description=f"ผลลัพธ์ของ {interaction.user.mention}:\n\n{result}", color=color)
     await interaction.response.send_message(embed=embed)
 
-# 8. ล้างแชท
+# 7. ล้างแชท
 @bot.tree.command(name="ล้าง", description="🧹 ลบข้อความ")
 @app_commands.checks.has_permissions(manage_messages=True)
 async def clear_chat(interaction: discord.Interaction, amount: int):
@@ -406,7 +430,7 @@ async def clear_chat(interaction: discord.Interaction, amount: int):
     await interaction.channel.purge(limit=amount)
     await interaction.followup.send("🧹 เรียบร้อย!", ephemeral=True)
 
-# 9. ล้างห้อง
+# 8. ล้างห้อง
 @bot.tree.command(name="ล้างห้อง", description="⚠️ Nuke Channel")
 @app_commands.checks.has_permissions(administrator=True)
 async def nuke_channel(interaction: discord.Interaction):
@@ -425,7 +449,14 @@ async def nuke_channel(interaction: discord.Interaction):
 @bot.event
 async def on_ready():
     logger.info(f"🚀 Logged in as {bot.user}")
+    
+    # เพิ่ม View เพื่อให้ปุ่มยังทำงานได้หลังจากบอทรีสตาร์ท (Persistent Views)
     bot.add_view(TicketButton())
+    bot.add_view(LeaveButtonView()) # เพิ่ม View ปุ่มลาเข้าไปด้วย
+
+    # รีเฟรชปุ่มลาให้อัตโนมัติทุกครั้งที่เปิดบอท (optional)
+    for guild in bot.guilds:
+        await refresh_leave_msg(guild)
 
 keep_alive()
 bot.run(os.environ['TOKEN'])
