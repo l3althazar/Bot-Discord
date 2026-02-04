@@ -10,7 +10,7 @@ import logging
 import google.generativeai as genai
 
 # 🔥 1. IMPORT KEEP_ALIVE
-from keep_alive import keep_alive 
+from keep_alive import keep_alive
 
 # ==========================================
 # 📝 ตั้งค่าระบบ Log
