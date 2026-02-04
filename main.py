@@ -33,10 +33,12 @@ bot = commands.Bot(command_prefix='-', intents=intents)
 # ⚙️ ตั้งค่า (Config)
 # ==========================================
 PUBLIC_CHANNEL = "ห้องแนะนำตัว"
-CHANNEL_LEAVE = "ห้องแจ้งลา"
+CHANNEL_LEAVE = "ห้องแจ้งลา"        
 ALLOWED_CHANNEL_FORTUNE = "ห้องเช็คดวง"
 
+# ⚠️ ชื่อยศต้องตรงกับใน Discord เป๊ะๆ
 ROLE_ADMIN_CHECK = "‹ 𝑆𝑦𝑠𝑡𝑒𝑚 𝐴𝑑𝑚𝑖𝑛 ⚖️ ›" 
+
 ROLE_VERIFIED = "‹ แนะนำตัวแล้ว ›"
 ROLE_WWM = "ข้าคือจอมยุทธ์เด๊ะ"
 
@@ -72,8 +74,8 @@ try:
         k_len = len(GEMINI_API_KEY)
         KEY_DEBUG_INFO = f"{GEMINI_API_KEY[:5]}...{GEMINI_API_KEY[-4:]} (ยาว: {k_len})"
         genai.configure(api_key=GEMINI_API_KEY)
-        # ปรับรุ่นให้เป็น 1.5-flash เพื่อให้ใช้งานได้จริง
-        model = genai.GenerativeModel('gemini-1.5-flash')
+        # แก้ไขจาก 2.5 เป็น models/gemini-1.5-flash เพื่อแก้ 404 Error
+        model = genai.GenerativeModel('models/gemini-1.5-flash')
         AI_STATUS = "✅ พร้อมใช้งาน"
         logger.info("✅ Gemini Model loaded successfully.")
 except Exception as e:
@@ -260,7 +262,6 @@ async def finalize_intro(interaction, data):
     guild = interaction.guild
 
     roles_to_add = []
-    
     all_class_roles = []
     for r_name in [ROLE_DPS, ROLE_HEALER, ROLE_TANK, ROLE_HYBRID]:
         r = discord.utils.get(guild.roles, name=r_name)
@@ -282,17 +283,13 @@ async def finalize_intro(interaction, data):
         cls = data.get("class")
         target_role = None
         if cls == "ดาเมจ":
-            target_role = discord.utils.get(guild.roles, name=ROLE_DPS)
-            icon_prefix = "⚔️"
+            target_role = discord.utils.get(guild.roles, name=ROLE_DPS); icon_prefix = "⚔️"
         elif cls == "หมอ":
-            target_role = discord.utils.get(guild.roles, name=ROLE_HEALER)
-            icon_prefix = "💉"
+            target_role = discord.utils.get(guild.roles, name=ROLE_HEALER); icon_prefix = "💉"
         elif cls == "แทงค์":
-            target_role = discord.utils.get(guild.roles, name=ROLE_TANK)
-            icon_prefix = "🛡️"
+            target_role = discord.utils.get(guild.roles, name=ROLE_TANK); icon_prefix = "🛡️"
         elif cls == "ไฮบริด":
-            target_role = discord.utils.get(guild.roles, name=ROLE_HYBRID)
-            icon_prefix = "🧬"
+            target_role = discord.utils.get(guild.roles, name=ROLE_HYBRID); icon_prefix = "🧬"
         
         if target_role: roles_to_add.append(target_role)
 
@@ -308,10 +305,8 @@ async def finalize_intro(interaction, data):
 
     embed = discord.Embed(title="✅ สมาชิกใหม่รายงานตัว!", color=0xffd700)
     desc = f"**ชื่อเล่น :** {data['name']}\n\n**อายุ :** {data['age']}\n\n**เกมที่เล่น :** {data['game']}"
-    
     if data["game"] == "Where Winds Meet":
-        desc += f"\n\n**ชื่อในเกม :** {data['char_name']}"
-        desc += f"\n\n**สายอาชีพ :** {data['class']}"
+        desc += f"\n\n**ชื่อในเกม :** {data['char_name']}\n\n**สายอาชีพ :** {data['class']}"
     
     embed.description = desc
     if user.avatar: embed.set_thumbnail(url=user.avatar.url)
@@ -330,7 +325,6 @@ async def finalize_intro(interaction, data):
     embed_success = discord.Embed(title="✅ เรียบร้อย!", description="บันทึกข้อมูลเสร็จสิ้น", color=0x00ff00)
     try: await interaction.edit_original_response(embed=embed_success)
     except: pass
-
     await asyncio.sleep(3)
     try: await interaction.delete_original_response()
     except: pass
@@ -347,7 +341,6 @@ async def refresh_setup_msg(channel):
             if message.author == bot.user and message.embeds and message.embeds[0].title == "📢 ยืนยันตัวตน / แนะนำตัว":
                 await message.delete()
     except: pass
-    
     embed = discord.Embed(title="📢 ยืนยันตัวตน / แนะนำตัว", description="กดปุ่มด้านล่างเพื่อเปิดแบบฟอร์มลงทะเบียนครับ 👇", color=0x00ff00)
     await channel.send(embed=embed, view=TicketButton())
 
@@ -363,13 +356,8 @@ async def setup(ctx):
     await ctx.message.delete()
     pub_ch = discord.utils.get(ctx.guild.text_channels, name=PUBLIC_CHANNEL)
     leave_ch = discord.utils.get(ctx.guild.text_channels, name=CHANNEL_LEAVE)
-    
     if pub_ch: await refresh_setup_msg(pub_ch)
-    else: await ctx.send(f"⚠️ หาห้อง {PUBLIC_CHANNEL} ไม่เจอ")
-    
     if leave_ch: await refresh_leave_msg(ctx.guild)
-    else: await ctx.send(f"⚠️ หาห้อง {CHANNEL_LEAVE} ไม่เจอ")
-    
     await ctx.send("✅ รีเฟรชระบบเรียบร้อย (ข้อความนี้จะลบเองใน 5 วิ)", delete_after=5)
 
 @bot.tree.command(name="เช็คคนลา", description="📋 ดูรายชื่อคนที่ลาอยู่")
@@ -421,27 +409,19 @@ async def fortune(interaction: discord.Interaction):
     fortunes_data = [
         {"text": "🌟 เทพเจ้า RNG ประทับร่าง! ออฟชั่นทองมาแน่!", "color": 0xffd700, "img": "https://media.giphy.com/media/l0Ex6kAKAoFRsFh6M/giphy.gif"},
         {"text": "🔥 มือร้อน(เงิน)! ระวังหมดตัวนะเพื่อน (แต่ได้ของดี)", "color": 0xff4500, "img": "https://media.giphy.com/media/Lopx9eUi34rbq/giphy.gif"},
-        {"text": "✨ แสงสีทองรออยู่! (ในฝันนะ... ล้อเล่น ของจริง!)", "color": 0xffff00, "img": "https://media.giphy.com/media/3o7TKSjRrfIPjeiVyM/giphy.gif"},
+        {"text": "✨ แสงสีทองรออยู่!", "color": 0xffff00, "img": "https://media.giphy.com/media/3o7TKSjRrfIPjeiVyM/giphy.gif"},
         {"text": "🟢 สีเขียวเหนี่ยวทรัพย์ วันนี้ได้แต่ของพอถูไถ", "color": 0x2ecc71, "img": "https://media.giphy.com/media/13HgwGsXF0aiGY/giphy.gif"},
-        {"text": "📈 ดวงกลางๆ พอไหว แต่อย่าหวังของแรร์มาก", "color": 0x3498db, "img": "https://media.giphy.com/media/l2Je66zG6mAAZxgqI/giphy.gif"},
-        {"text": "🧘 ไปทำบุญ 9 วัดก่อน ดวงยังไม่พุ่ง แต่ไม่แย่", "color": 0x9b59b6, "img": "https://media.giphy.com/media/xT5LMHxhOfscxPfIfm/giphy.gif"},
-        {"text": "💀 ดวงของคุณจะได้ All Bamboocut", "color": 0x000000, "img": "https://media.giphy.com/media/26tP3M3iA3EBIfXy0/giphy.gif"},
-        {"text": "💎 มีแววเสียตังค์ฟรี 99% = เเกลือล้วนๆ", "color": 0x95a5a6, "img": "https://media.giphy.com/media/3o6UB5RrlQuMfZp82Y/giphy.gif"},
-        {"text": "⚔️ จอมยุทธ์ถังแตก เก็บตังค์กินข้าวเถอะเชื่อข้า", "color": 0x7f8c8d, "img": "https://media.giphy.com/media/l2JdZOv5901Q6Q7Ek/giphy.gif"},
-        {"text": "🧧 GM รักคุณ (รักที่จะกินตังค์คุณจนหมดตัว)", "color": 0xe74c3c, "img": "https://media.giphy.com/media/3o7TKRBB3E7IdVNLm8/giphy.gif"}
+        {"text": "📈 ดวงกลางๆ พอไหว", "color": 0x3498db, "img": "https://media.giphy.com/media/l2Je66zG6mAAZxgqI/giphy.gif"},
+        {"text": "🧘 ไปทำบุญ 9 วัดก่อน", "color": 0x9b59b6, "img": "https://media.giphy.com/media/xT5LMHxhOfscxPfIfm/giphy.gif"},
+        {"text": "💀 ดวง All Bamboocut", "color": 0x000000, "img": "https://media.giphy.com/media/26tP3M3iA3EBIfXy0/giphy.gif"},
+        {"text": "💎 เกลือล้วนๆ", "color": 0x95a5a6, "img": "https://media.giphy.com/media/3o6UB5RrlQuMfZp82Y/giphy.gif"},
+        {"text": "⚔️ จอมยุทธ์ถังแตก", "color": 0x7f8c8d, "img": "https://media.giphy.com/media/l2JdZOv5901Q6Q7Ek/giphy.gif"},
+        {"text": "🧧 GM รักคุณ (รักที่จะกินตังค์คุณ)", "color": 0xe74c3c, "img": "https://media.giphy.com/media/3o7TKRBB3E7IdVNLm8/giphy.gif"}
     ]
-
     selection = random.choice(fortunes_data)
-
-    embed = discord.Embed(
-        title="🔮 เสี่ยงเซียมซีวัดดวง",
-        description=f"# {selection['text']}", 
-        color=selection["color"]
-    )
-    
+    embed = discord.Embed(title="🔮 เสี่ยงเซียมซีวัดดวง", description=f"# {selection['text']}", color=selection["color"])
     embed.set_image(url=selection["img"])
-    embed.set_footer(text=f"ผู้เสี่ยงทาย: {interaction.user.display_name} • Devils DenBot")
-
+    embed.set_footer(text=f"ผู้เสี่ยงทาย: {interaction.user.display_name}")
     await interaction.response.send_message(embed=embed)
 
 @bot.tree.command(name="ล้าง", description="🧹 ลบข้อความ")
@@ -452,40 +432,18 @@ async def clear_chat(interaction: discord.Interaction, amount: int):
     await interaction.channel.purge(limit=amount)
     await interaction.followup.send("🧹 เรียบร้อย!", ephemeral=True)
 
-@bot.tree.command(name="ล้างห้อง", description="⚠️ Nuke Channel")
-@app_commands.checks.has_permissions(administrator=True)
-async def nuke_channel(interaction: discord.Interaction):
-    view = discord.ui.View()
-    async def confirm(i):
-        if i.user != interaction.user: return
-        await i.response.send_message("💣 บึ้ม...", ephemeral=True)
-        new_ch = await interaction.channel.clone(reason="Nuke")
-        await interaction.channel.delete()
-        await new_ch.send("✨ ห้องใหม่!")
-    btn = discord.ui.Button(label="ยืนยัน?", style=discord.ButtonStyle.danger, emoji="💣")
-    btn.callback = confirm
-    view.add_item(btn)
-    await interaction.response.send_message("⚠️ ยืนยัน?", view=view, ephemeral=True)
-
 @bot.event
 async def on_ready():
     logger.info(f"🚀 Logged in as {bot.user}")
-    
-    # ✅ เพิ่ม View ทั้งหมดลงใน Persistent View
     bot.add_view(TicketButton())
     bot.add_view(LeaveButtonView())
     bot.add_view(LeaveApprovalView()) 
-
-    # รีเฟรชเฉพาะห้องแจ้งลา (ถ้ามี)
     for guild in bot.guilds:
         await refresh_leave_msg(guild)
-        
-    # 🔥 2. สั่งรันเว็บเซิร์ฟเวอร์ (สำคัญมาก)
     keep_alive()
 
-# 🔥 เช็ค Token ก่อนรัน
 TOKEN = os.getenv("DISCORD_TOKEN")
 if not TOKEN:
-    logger.critical("❌ ไม่พบ DISCORD_TOKEN ใน .env")
+    logger.critical("❌ ไม่พบ DISCORD_TOKEN")
 else:
     bot.run(TOKEN)
